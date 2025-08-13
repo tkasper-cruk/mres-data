@@ -1,0 +1,10 @@
+configfile: "config/main.yaml"
+include: "rules/numbat.smk"
+include: "rules/copyvae.smk"
+include: "rules/copykat.smk"
+
+METHODS = ['numbat',"copyvae","copykat"]
+
+rule all:
+    input: expand("results/{method}/{s_id}",method=METHODS,s_id=config['sample_ids'])
+

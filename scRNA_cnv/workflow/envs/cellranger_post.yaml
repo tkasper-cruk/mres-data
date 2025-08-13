@@ -1,0 +1,26 @@
+name: cellranger_qc
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - python=3.12
+  - jupyterlab
+  - r-base>=4.3
+  - bioconductor-multtest
+  - r-soupx
+  - r-cairo
+  - r-irkernel
+  - bioconductor-scater
+  - bioconductor-scdblfinder
+  - bioconductor-biocparallel
+  - bioconductor-scry
+  - rpy2
+  - seaborn
+  - numpy<2.0
+  - anndata2ri=1.1
+  - python-igraph
+  - leidenalg
+  - fastcluster
+  - pip
+  - pip:
+      - scanpy

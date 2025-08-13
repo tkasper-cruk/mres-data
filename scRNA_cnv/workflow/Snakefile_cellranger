@@ -1,0 +1,6 @@
+configfile: "config/main.yaml"
+include: "rules/cellranger_processing.smk"
+
+rule all:
+    input: expand("results/{s_id}_notebook_copied",s_id=config['sample_ids'])
+

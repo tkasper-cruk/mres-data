@@ -1,0 +1,56 @@
+set-threads:
+  # please keep in sync with resources
+  - cellranger=16 
+  - copyKAT=32
+  - numbat_preprocessing=16
+  - numbat=8
+  - xcltk=16
+  - xclone=16
+  - cellbender=1
+  - scevan=16
+
+set-resources:
+  # 24h = 1440 min
+  cellranger:
+    runtime : 1440
+    mem : "20G"
+    cpus : 16
+  cellbender:
+    slurm_partition: "cuda"
+    slurm_extra: "'--gres=gpu:1'"
+    cpus : 32
+    mem : "64G"
+  copyKAT:
+    mem : "64G"
+    cpus : 32
+  # copyVAE
+  copyvae:
+    mem : "16G"
+  # numbat
+  numbat_preprocessing:
+    mem : "16G"
+    slurm_partition : "rocm"
+  numbat:
+    mem : "64G"
+    slurm_partition : "rocm"
+  # XClone
+  xcltk:
+    cpus : 16
+    mem : "32G"
+  xclone:
+    cpus : 16
+    mem : "32G"
+  # HoneyBadger 
+  honeybadger_snps:
+    mem : "32G"
+  honeybadger:
+    cpus : 8
+    mem : "32G"
+    runtime : 14400
+  scevan:
+    mem : "128G"
+    runtime : 1440
+    slurm_partition : "epyc"
+
+use-singularity: True
+singularity-args: "--home /mnt/scratchc/fmlab/kasper01/rna_proc/"

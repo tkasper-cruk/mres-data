@@ -1,0 +1,11 @@
+name: copykat_test
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - r-base
+  - r-devtools
+  - r-seurat
+  - r-usethis>=2.0.1
+  - bioconductor-biomart
+  #copykat is not available from conda, installed in script

@@ -1,0 +1,24 @@
+sample_ids : ["SITTB3","SITTC7","SITTF7","SITTG8","SITTD8"] 
+
+cellranger_ref : "resources/hg19_cellranger"
+cellranger_bin : "resources/cellranger-9.0.1/bin/cellranger"
+cellranger_mem : 20 #GB, please keep in sync with resources in sc_slurm profile
+cellranger_chemistry : "SC3Pv3" #"ARC-v1" #"SC3Pv3" for 3' scRNA & "ARC-v1" for Multiome
+eagle_bin : "resources/Eagle_v2.4.1/eagle"
+
+genome_version : "hg19"
+
+numbat_pu_gmap :  "resources/Eagle_v2.4.1/tables/genetic_map_hg19_withX.txt.gz"
+numbat_pu_snp : "resources/genome1K.phase3.SNP_AF5e2.chr1toX.hg19.vcf.gz"
+numbat_pu_panels : "resources/1000G_hg19"
+numbat_loh : FALSE
+
+common_af : 0.05
+
+copyvae_cycle_genes: "/copyVAE/data/Macosko_cell_cycle_genes.txt"
+copyvae_cluster_size : 5
+copyvae_epsilon : 2.5
+
+copykat_distance : "euclidean"
+
+xclone_features : 'resources/annotate_genes_hg19_update_20230126.txt'
