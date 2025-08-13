@@ -1,0 +1,10 @@
+set-threads:
+  - determine_cells=16
+  - assign_reads=8
+
+default-resources:  [runtime=600,cpus=1,mem=2G,slurm_partition='epyc', slurm_account='fmlab']
+
+set-resources:
+    - determine_cells:mem=64G
+    - determine_cells:cpus=16
+    - merge_fastq:mem=16G
