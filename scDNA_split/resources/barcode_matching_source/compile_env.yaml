@@ -1,0 +1,7 @@
+name: split_fastqs_cpp_compile
+channels:
+  - conda-forge
+dependencies:
+  - zlib
+  - cxx-compiler
+  - boost

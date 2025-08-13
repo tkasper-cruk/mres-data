@@ -6,7 +6,7 @@
 * Modify workflow/profiles/sc_slurm/config.yaml to fit the data and cluster environment
 * Move the raw reads into results/raw_reads/sample_id
 ## 2 - Run cellranger
-* Run the workflow/Snakefile_cellranger file to run pre-processing, cellranger and cellbender (requires '--use-conda' flag)
+* Run the workflow/Snakefile_cellranger file to run pre-processing, cellranger and cellbender (requires `--use-conda` flag)
 * For use on a slurm cluster, use the run_cellranger.sh script (requires a snakemake user profile named slurm)
 * Using a screen session is recommended to avoid crashes due to client disconnects
 ## 3 - Post-cellranger processing
@@ -17,6 +17,6 @@
 * You will find the QC notebook in the results/cellranger/sample_id folder
 * Run the notebook to run all QC/Filtering steps on the cellranger output
 ## 4 - Run scRNA-based CNV callers
-* Run the workflow/Snakefile_cnv file to run pre-processing, cellranger and cellbender (requires '--use-conda' flag)
+* Run the workflow/Snakefile_cnv file to run pre-processing, cellranger and cellbender (requires `--use-conda` flag)
 * For use on a slurm cluster, use the run_cnv.sh script (requires a snakemake user profile named slurm)
 * using a screen session is recommended to avoid crashes due to client disconnects

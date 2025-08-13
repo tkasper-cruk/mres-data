@@ -1,0 +1,250 @@
+configfile : "config/main.yaml"
+
+def padded_nums(num_files:int)->str:
+    filenums = []
+    for i in range(num_files):
+        numstring = str(i)
+        numstring = "0"*(5-len(numstring))+numstring
+        filenums.append(numstring)
+    return filenums
+
+localrules: all, get_matching_reads, assign_reads, combine_assignments, split_fastq, cleanup
+
+rule all: #force full execution
+    input:
+        expand(
+            "results/{slx}.{sample}.{flowcell}.s_{lane}.cleanup.done",
+            sample=config["sampleID"],
+            slx=config["slxID"],
+            flowcell=config["flowcellID"][0],
+            lane=config["lane"][0]
+            )
+
+rule create_idfiles:
+    input:
+        "results/raw_fastq/{slx}/{slx}.{sample}.{flowcell}.s_{lane}.r_1.fq.gz"
+    output:
+        temp("results/read_ids/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.ids.done")
+    params:
+        id_prefix = "results/read_ids/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.ids.",
+        tempfile = "results/{sample}.{flowcell}.{lane}.tmp",
+        outdir = "results/read_ids/{sample}/"
+    shell:
+        """
+        zgrep ^@ {input} > {params.tempfile}
+        split -n l/{config[assignment_jobs]} --numeric-suffixes=1 -a {config[num_digits]} --additional-suffix .txt {params.tempfile} {params.id_prefix}
+        rm {params.tempfile}
+        touch {output}
+        """
+
+rule get_matching_reads:
+    input:
+        "results/read_ids/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.ids.done"
+    output:
+        temp("results/barcode_counting/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.counting.done")
+    params:
+        infile_stem="results/read_ids/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.ids.",
+        outfile_stem="results/barcode_counting/{sample}/{slx}.{sample}.counts.{flowcell}.s_{lane}."
+    shell:
+        """
+        sbatch {config[slurm_params]} {config[counting_params]}\
+        --array=1-{config[assignment_jobs]}\
+        -J {wildcards.sample}_CountBarcodes\
+        workflow/scripts/run_counting.sh\
+        -i {params.infile_stem}\
+        -b {config[legal_barcode_table]}\
+        -o {params.outfile_stem}\
+        -p {config[num_digits]}\
+       
+        touch {output}
+        """
+
+rule determine_cells:
+    input:
+        expand(
+            "results/barcode_counting/{{sample}}/{{slx}}.{{sample}}.{flowcell}.s_{lane}.counting.done",
+            zip,
+            flowcell=config["flowcellID"],
+            lane=config["lane"]
+        )
+    output:
+        expand(
+            "results/barcodes/{{sample}}/{{slx}}.{{sample}}.{flowcell}.s_{lane}.selected.txt",
+            zip,
+            flowcell=config["flowcellID"],
+            lane=config["lane"]
+        ),
+        "results/cell_stats/{sample}/{slx}.{sample}.barcode_stats.tsv",
+        "results/cell_stats/{sample}/{slx}.{sample}.barcode_ranks.png"
+    conda:
+        "envs/call_cells.yaml"
+    params:
+        infile_stem="results/barcode_counting/{sample}/{slx}.{sample}.counts."
+    shell:
+        """
+        python workflow/scripts/call_cells.py \
+        -b {params.infile_stem}\
+        -o results/barcodes/{wildcards.sample}\
+        -s results/cell_stats/{wildcards.sample}\
+        -n {config[assignment_jobs]}\
+        -p {config[num_digits]}\
+        --slx {wildcards.slx}\
+        --sample {wildcards.sample}\
+        --flowcell "{config[flowcellID]}"\
+        --lane "{config[lane]}"\
+        --min_readcount {config[min_readcount]}\
+        --ordmag_expected {config[ordmag_expected]}\
+        """
+
+rule assign_reads:
+    input:
+        barcodes="results/barcodes/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.selected.txt",
+        idfile = "results/read_ids/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.ids.done"
+    output:
+        temp("results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assignment.done")
+    params:
+        infile_stem="results/read_ids/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.ids.",
+        outfile_stem = "results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assigned.",
+        unassigned = "results/unassigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.unassigned."
+    shell:
+        """
+        sbatch {config[slurm_params]} {config[barcode_matching_params]}\
+        --array=1-{config[assignment_jobs]}\
+        -J {wildcards.sample}_{wildcards.flowcell}_s_{wildcards.lane}.AssignReads\
+        workflow/scripts/run_assignment.sh\
+        -b  {input.barcodes} \
+        -i {params.infile_stem}\
+        -o {params.outfile_stem}\
+        -t {threads}\
+        -n {config[splitting_jobs]}\
+        --padding {config[num_digits]}\
+        -u {params.unassigned}
+
+        touch {output}
+        """
+
+rule combine_assignments:
+    input:
+        "results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assignment.done"
+    output:
+        temp("results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assignment_combined.done")
+    params:
+        file_stem="results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assigned."
+    shell:
+        """
+        sbatch {config[slurm_params]} {config[combine_params]}\
+        --array=1-{config[splitting_jobs]}\
+        -J {wildcards.sample}_CombAssign\
+        workflow/scripts/combine_assignments.sh\
+        -f {params.file_stem}\
+        -p {config[num_digits]}\
+        -n {config[assignment_jobs]}
+
+        touch {output}
+        """
+
+rule create_assignment_record:
+    input:
+        "results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assignment_combined.done"
+    output:
+        "results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assigned.all.tsv.gz"
+    params:
+        file_stem="results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assigned."
+    shell:    
+        """
+        python workflow/scripts/combine_assignments.py\
+        -f {params.file_stem}\
+        -p {config[num_digits]}\
+        -n {config[splitting_jobs]}
+        """
+
+rule split_fastq:
+    input:
+        reads_assignment="results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assignment_combined.done",
+        fastq1 = "results/raw_fastq/{slx}/{slx}.{sample}.{flowcell}.s_{lane}.r_1.fq.gz",
+        fastq2 = "results/raw_fastq/{slx}/{slx}.{sample}.{flowcell}.s_{lane}.r_2.fq.gz"
+    output:
+        temp("results/split_fastq/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.splitting.done")
+    params:
+        infile_stem = "results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assigned.",
+        outdir="results/split_fastq/{sample}_{flowcell}_{lane}/"
+    shell:
+        """
+        sbatch {config[slurm_params]} {config[splitting_params]}\
+        --array=1-{config[splitting_jobs]}\
+        -J {wildcards.sample}_SplitFastQ\
+        workflow/scripts/run_splitting.sh\
+        -a {params.infile_stem}\
+        -p {config[num_digits]}\
+        -1 {input.fastq1}\
+        -2 {input.fastq2}\
+        -o {params.outdir}\
+        --slx {wildcards.slx}\
+        --sample {wildcards.sample}\
+        --flowcell {wildcards.flowcell}\
+        --lane {wildcards.lane}\
+        --max_buffer_reads {config[read_buffer]}
+
+        touch {output}
+        """
+
+rule merge_fastq:
+    input:
+        expand(
+            "results/split_fastq/{{sample}}/{{slx}}.{{sample}}.{flowcell}.s_{lane}.splitting.done",
+            zip,
+            flowcell=config["flowcellID"],
+            lane=config["lane"]
+        )
+    output:
+        temp("results/split_fastq/{sample}/{slx}.{sample}.merging.done")
+    params:
+        instem = "results/split_fastq/{sample}_",
+        outdir = "results/split_fastq/{sample}/"
+    shell:
+        """
+        python workflow/scripts/merge_fastqs.py\
+        -i {params.instem} \
+        -o {params.outdir}\
+        -f "{config[flowcellID]}"\
+        -l "{config[lane]}"\
+        --slx {wildcards.slx}\
+        --sample {wildcards.sample} && touch {output}
+        """
+
+rule write_samplesheet:
+    input:
+        "results/split_fastq/{sample}/{slx}.{sample}.merging.done",
+    output:
+        samplesheet=expand("results/split_fastq/{{sample}}/{{slx}}.{flowcell}.s_{lane}.contents.csv",
+        flowcell=config["flowcellID"][0],
+        lane=config["lane"][0])
+    params:
+        fq_dir = "results/split_fastq/{sample}/"
+    shell:
+        """
+        python workflow/scripts/write_samplesheet.py\
+        -f {params.fq_dir}\
+        -o {output}\
+        -n {wildcards.sample}\
+        --slx {wildcards.slx}\
+        --sample {wildcards.sample}\
+        --flowcell {config[flowcellID][0]}\
+        --lane {config[lane][0]}
+        """
+
+rule cleanup:
+    input:
+        "results/split_fastq/{sample}/{slx}.{flowcell}.s_{lane}.contents.csv",
+        "results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assigned.all.tsv.gz",
+    params:
+        #comment any subline to keept those files
+        barcode_counts="results/barcode_counting/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.counts.*",
+        partial_assignments="results/assigned_reads/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.assigned.*", #keeps the gzipped file with all assignments
+        id_files = "results/read_ids/{sample}/{slx}.{sample}.{flowcell}.s_{lane}.ids.*",
+        fastq_files = "results/raw_fastq/{slx}/{slx}.{sample}.{flowcell}.s_{lane}.r_*.fq.gz",
+        one_cell_fastq = "results/split_fastq/{sample}_*"
+    output:
+        "results/{slx}.{sample}.{flowcell}.s_{lane}.cleanup.done"
+    shell:
+        "rm -rf {params} && touch {output}"

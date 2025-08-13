@@ -1,0 +1,34 @@
+
+#SAMPLE DESCRIPTION, needs to be updated for every run
+sampleID : ["SINAD6"] #["AAAAA0"] #["SINAB9"] #["SINAD6"] #["SINAA9"] # ["SINAA9-smallest"]
+slxID : ["SLX-25514"] #["SLX-0"] #[SLX-26102] #["SLX-25514"] #["SLX-26101"]
+flowcellID : 
+  - "22HGMHLT4"
+  - "22VY5LLT4" #["HWTVNDSX3"] #["22K5C5LT4"] #["22HGMHLT4"] #
+lane : 
+  - 7
+  - 1
+ordmag_expected : 1000 # set to number of expected cells to use OrdMag thresholding. This is only an initital estimate and doesn't need to be precise
+
+
+#splitting options, scale for size of fastq and available resources, num_digits should be greater than log10(jobnumber)
+num_digits : 5
+assignment_jobs : 16
+splitting_jobs : 16
+
+#Assignmnent/processign options, should be fine as default for most cases
+legal_barcode_table : "resources/legal_barcodes_transcribe.tsv" #"resources/737K-crdna-v1.txt" #"resources/legal_barcodes_transcribe.tsv" #"resources/legal_barcodes_transcribe.old.tsv" for older instruments (e.g. NovaSeq6000)
+min_readcount : 300000 #625000 #according to scAbsolute calculations, should be as low as possible as it is only backup filter
+
+#Splitting options
+read_buffer : 50000000 # how many reads to keep as buffer durign fastq splitting, increases memory requirement but provides almost linear speed increase
+#generally, PE100 reads require ~ 300bytes/read -> 1 GB stores ~3.3 Million reads -> The default is set for about 64GB available memory per process,
+#including the memory required to store the read -> sample mapping
+
+
+#slurm options
+slurm_params : "-p epyc -A fmlab -o results/logs/%x_%A_%a.log -e results/logs/%x_%A_%a.log -W"
+barcode_matching_params : "--cpus-per-task=16 --mem-per-cpu=8G --time=48:00:00"
+combine_params : "--cpus-per-task=1 --mem-per-cpu=64G --time=10:00:00"
+counting_params : "--cpus-per-task=1 --mem-per-cpu=2G --time=10:00:00"
+splitting_params : "--cpus-per-task=1 --mem-per-cpu=64G --time=24:00:00"
