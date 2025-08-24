@@ -1,5 +1,5 @@
 # mres-data
-The used code and data for the MRes dissertation "The Limits and Promise of Computational Integration: An Evaluation of CNV-Based Matching for Genomic and Transcriptomic Data at Single-Cell Resolution."
+The used code and data for the MRes dissertation "The Promise and Limits of Computational Integration: An Evaluation of CNV-Based Matching for Genomic and Transcriptomic Data at Single-Cell Resolution."
 ## scRNA-seq preprocessing
 The snakemake workflow used for scRNA-seq pre-processing and CNV inference is in `scRNA_cv/`
 ## DEFND-seq scsWGS splitting
